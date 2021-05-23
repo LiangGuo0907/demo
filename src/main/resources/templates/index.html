@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+    <script type="text/javascript" src="../jquery.js"></script>
+    <script type="text/javascript" src="../demo.js"></script>
+</head>
+<body>
+<form enctype="multipart/form-data" id="batchUpload"  action="user/upload" method="post" class="form-horizontal">
+    <button class="btn btn-success btn-xs" id="uploadEventBtn" style="height:26px;"  type="button" >选择文件</button>
+    <input type="file" name="file"  style="width:0px;height:0px;" id="uploadEventFile">
+    <input id="uploadEventPath"  disabled="disabled"  type="text" placeholder="请选择excel表" style="border: 1px solid #e6e6e6; height: 26px;width: 200px;" >
+</form>
+<button type="button" class="btn btn-success btn-sm"  onclick="user.uploadBtn()" >上传</button>
+</body>
+</html>
