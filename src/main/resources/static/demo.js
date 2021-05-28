@@ -27,7 +27,7 @@ var User = function(){
             type : type,
             data : data,
             success : function(result) {
-                alert( result);
+                //alert( result);
             },
             error : function() {
                 alert( "excel上传失败");
@@ -43,3 +43,19 @@ $(function(){
     user = new User();
     user.init();
 });
+
+function uploadExcel() {
+    var formData = new FormData();
+    formData.append('excelFile', $('#excelFile')[0].files[0]);
+    $.ajax({
+        type: "post",
+        processData: false,
+        contentType: false,
+        url: "/importExcel",
+        data: formData,
+        success: function (data) {
+
+        }
+    });
+
+}

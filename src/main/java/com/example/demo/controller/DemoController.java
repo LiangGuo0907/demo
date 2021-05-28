@@ -1,27 +1,41 @@
 package com.example.demo.controller;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.EasyExcelFactory;
+import com.alibaba.excel.ExcelReader;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.read.metadata.ReadSheet;
+import com.alibaba.excel.write.metadata.WriteSheet;
+import com.alibaba.excel.write.metadata.WriteTable;
+import com.example.demo.Tools.ExcelListener;
+import com.example.demo.Tools.ExcelUtils;
 import com.example.demo.entity.Demo;
+import com.example.demo.entity.MonthTotalDto;
+import com.example.demo.entity.MonthTotalExportDto;
+import org.apache.commons.lang.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.function.ServerResponse;
 
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.util.*;
 
 /**
  * @author wl
@@ -29,18 +43,25 @@ import java.util.Map;
  */
 @Controller
 public class DemoController {
+    private static final Logger logger = LoggerFactory.getLogger(DemoController.class);
+    private static String fileName = "";//上传的文件名
+    private List<Object> data1;//钉钉月度汇总数据
 
-    @RequestMapping("index")
+    @RequestMapping("/index")
     public String index(Model model){
-        model.addAttribute("name","jack");
-        model.addAttribute("age","30");
-        model.addAttribute("info","我是一个爱学习的好孩子");
         return "index";
     }
 
-    @RequestMapping(value = "/upload",method = RequestMethod.POST)
+    /**
+     * 导入Excel，解析
+     * @param serviceFile
+     * @throws Exception
+     */
+    @PostMapping(value = "/importExcel")
     @ResponseBody
-    public void upload(@RequestParam(value="file",required = true) MultipartFile file) throws Exception {
+    public void upload(@RequestParam(value="excelFile") MultipartFile serviceFile) throws Exception {
+
+       /* //获取选中的column
         InputStream inputStream = null;
         Map map = new HashMap<>();//用来存储每个sheet页
         String fileName = "";
@@ -85,9 +106,150 @@ public class DemoController {
             inputStream.close();
         }
         String reg = "[^\\d]";
-        String[] newStrArr = fileName.split(reg);
-        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
-        EasyExcel.write(fileName, Demo.class).sheet("模板").doWrite((List) map.get("月度汇总"));
+        String[] newStrArr = fileName.split(reg);*/
+        fileName = serviceFile.getOriginalFilename();//获取文件名
+        ExcelReader excelReader = null;
+        InputStream in = null;
+        try {
+            in = serviceFile.getInputStream();
+            excelReader = EasyExcel.read(in).build();
+
+            ExcelListener boxServerListener = new ExcelListener();
+            ExcelListener platformListener = new ExcelListener();
+
+            //获取sheet对象
+            ReadSheet readBoxServerSheet =
+                    EasyExcel.readSheet(0).head(MonthTotalDto.class).registerReadListener(boxServerListener).build();
+            //读取数据
+            excelReader.read(readBoxServerSheet);
+            data1 = boxServerListener.getData();
+        } catch (Exception ex) {
+            logger.error("import excel to db fail", ex);
+        } finally {
+            in.close();
+            if (excelReader != null) {
+                excelReader.finish();
+            }
+        }
+    }
+
+    /**
+     * 导出
+     * @param response
+     */
+    //timeSheetSummaryHead(newStrArr[0],newStrArr[1])
+    @RequestMapping(value = "/export")
+    public void export(HttpServletResponse response){
+        try {
+            String reg = "[^\\d]";
+            String[] newStrArr = fileName.split(reg);
+            // 这里注意 有同学反应使用swagger 会导致各种问题，请直接用浏览器或者用postman
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setCharacterEncoding("utf-8");
+            // 这里URLEncoder.encode可以防止中文乱码 当然和easyexcel没有关系
+            String fileName = URLEncoder.encode(newStrArr[0]+"年"+newStrArr[1]+"月份考勤表", "UTF-8").replaceAll("\\+", "%20");
+            response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+            //EasyExcel.write(response.getOutputStream()).head(timeSheetSummaryHead(newStrArr[0],newStrArr[1])).sheet("模板").doWrite(data(data1));
+            EasyExcel.write(response.getOutputStream()).head(MonthTotalExportDto.class).sheet("925G考勤表").doWrite(data());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private List<MonthTotalExportDto> data() {
+        List<MonthTotalExportDto> list = new ArrayList<>();
+        int num = 1;
+        MonthTotalDto mtd;
+        for (Object o : data1){
+            MonthTotalExportDto mt = new MonthTotalExportDto();
+            mtd = (MonthTotalDto) o;
+            if (StringUtils.isBlank(mtd.getUserId()) || "UserId".equals(mtd.getUserId())){
+                continue;
+            }
+            mt.setXh(num);
+            mt.setName(mtd.getName());
+            mt.setSjcq(mtd.getCqts());
+            mt.setJiab("");
+            mt.setY(StringUtils.isBlank(mtd.getYi()) ? "" : "正常".equals(mtd.getYi()) ? "√":"休息".equals(mtd.getYi())?"休":"休息并打卡".equals(mtd.getYi())?"√":(mtd.getYi().lastIndexOf("年假"))!= -1 ?
+                    "年假" : (mtd.getYi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getYi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getYi()) ? "旷工":"√");
+            mt.setE(StringUtils.isBlank(mtd.getEr()) ? "" : "正常".equals(mtd.getEr()) ? "√":"休息".equals(mtd.getEr())?"休":"休息并打卡".equals(mtd.getEr())?"√":(mtd.getEr().lastIndexOf("年假"))!= -1 ?
+                    "年假" : (mtd.getEr().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getEr().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getEr()) ? "旷工":"√");
+            mt.setSan(StringUtils.isBlank(mtd.getSan()) ? "" : "正常".equals(mtd.getSan()) ? "√":"休息".equals(mtd.getSan())?"休":"休息并打卡".equals(mtd.getSan())?"√":(mtd.getSan().lastIndexOf("年假"))!= -1 ?
+                    "年假" : (mtd.getSan().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getSan().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getSan()) ? "旷工":"√");
+            mt.setS(StringUtils.isBlank(mtd.getSi()) ? "" : "正常".equals(mtd.getSi()) ? "√":"休息".equals(mtd.getSi())?"休":"休息并打卡".equals(mtd.getSi())?"√"
+                    :(mtd.getSi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getSi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getSi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getSi()) ? "旷工":"√");
+            mt.setW(StringUtils.isBlank(mtd.getWu()) ? "" : "正常".equals(mtd.getWu()) ? "√":"休息".equals(mtd.getWu())?"休":"休息并打卡".equals(mtd.getWu())?"√"
+                    :(mtd.getWu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getWu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getWu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getWu()) ? "旷工":"√");
+            mt.setL(StringUtils.isBlank(mtd.getLiu()) ? "" : "正常".equals(mtd.getLiu()) ? "√":"休息".equals(mtd.getLiu())?"休":"休息并打卡".equals(mtd.getLiu())?"√"
+                    :(mtd.getLiu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getLiu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getLiu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getLiu()) ? "旷工":"√");
+            mt.setQ(StringUtils.isBlank(mtd.getQi()) ? "" : "正常".equals(mtd.getQi()) ? "√":"休息".equals(mtd.getQi())?"休":"休息并打卡".equals(mtd.getQi())?"√"
+                    :(mtd.getQi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getQi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getQi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getQi()) ? "旷工":"√");
+            mt.setB(StringUtils.isBlank(mtd.getBa()) ? "" : "正常".equals(mtd.getBa()) ? "√":"休息".equals(mtd.getBa())?"休":"休息并打卡".equals(mtd.getBa())?"√"
+                    :(mtd.getBa().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getBa().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getBa().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getBa()) ? "旷工":"√");
+            mt.setJ(StringUtils.isBlank(mtd.getJiu()) ? "" : "正常".equals(mtd.getJiu()) ? "√":"休息".equals(mtd.getJiu())?"休":"休息并打卡".equals(mtd.getJiu())?"√"
+                    :(mtd.getJiu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getJiu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getJiu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getJiu()) ? "旷工":"√");
+            mt.setShi(StringUtils.isBlank(mtd.getShi()) ? "" : "正常".equals(mtd.getShi()) ? "√":"休息".equals(mtd.getShi())?"休":"休息并打卡".equals(mtd.getShi())?"√"
+                    :(mtd.getShi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShi()) ? "旷工":"√");
+            mt.setSy(StringUtils.isBlank(mtd.getShiyi()) ? "" : "正常".equals(mtd.getShiyi()) ? "√":"休息".equals(mtd.getShiyi())?"休":"休息并打卡".equals(mtd.getShiyi())?"√"
+                    :(mtd.getShiyi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShiyi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShiyi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShiyi()) ? "旷工":"√");
+            mt.setSe(StringUtils.isBlank(mtd.getShier()) ? "" : "正常".equals(mtd.getShier()) ? "√":"休息".equals(mtd.getShier())?"休":"休息并打卡".equals(mtd.getShier())?"√"
+                    :(mtd.getShier().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShier().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShier().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShier()) ? "旷工":"√");
+            mt.setSsan(StringUtils.isBlank(mtd.getShisan()) ? "" : "正常".equals(mtd.getShisan()) ? "√":"休息".equals(mtd.getShisan())?"休":"休息并打卡".equals(mtd.getShisan())?"√"
+                    :(mtd.getShisan().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShisan().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShisan().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShisan()) ? "旷工":"√");
+            mt.setSs(StringUtils.isBlank(mtd.getShisi()) ? "" : "正常".equals(mtd.getShisi()) ? "√":"休息".equals(mtd.getShisi())?"休":"休息并打卡".equals(mtd.getShisi())?"√"
+                    :(mtd.getShisi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShisi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShisi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShisi()) ? "旷工":"√");
+            mt.setSw(StringUtils.isBlank(mtd.getShiwu()) ? "" : "正常".equals(mtd.getShiwu()) ? "√":"休息".equals(mtd.getShiwu())?"休":"休息并打卡".equals(mtd.getShiwu())?"√"
+                    :(mtd.getShiwu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShiwu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShiwu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShiwu()) ? "旷工":"√");
+            mt.setSl(StringUtils.isBlank(mtd.getShiliu()) ? "" : "正常".equals(mtd.getShiliu()) ? "√":"休息".equals(mtd.getShiliu())?"休":"休息并打卡".equals(mtd.getShiliu())?"√"
+                    :(mtd.getShiliu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShiliu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShiliu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShiliu()) ? "旷工":"√");
+            mt.setSq(StringUtils.isBlank(mtd.getShiqi()) ? "" : "正常".equals(mtd.getShiqi()) ? "√":"休息".equals(mtd.getShiqi())?"休":"休息并打卡".equals(mtd.getShiqi())?"√"
+                    :(mtd.getShiqi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShiqi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShiqi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShiqi()) ? "旷工":"√");
+            mt.setSb(StringUtils.isBlank(mtd.getShiba()) ? "" : "正常".equals(mtd.getShiba()) ? "√":"休息".equals(mtd.getShiba())?"休":"休息并打卡".equals(mtd.getShiba())?"√"
+                    :(mtd.getShiba().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShiba().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShiba().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShiba()) ? "旷工":"√");
+            mt.setSj(StringUtils.isBlank(mtd.getShijiu()) ? "" : "正常".equals(mtd.getShijiu()) ? "√":"休息".equals(mtd.getShijiu())?"休":"休息并打卡".equals(mtd.getShijiu())?"√"
+                    :(mtd.getShijiu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getShijiu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getShijiu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getShijiu()) ? "旷工":"√");
+            mt.setEs(StringUtils.isBlank(mtd.getErshi()) ? "" : "正常".equals(mtd.getErshi()) ? "√":"休息".equals(mtd.getErshi())?"休":"休息并打卡".equals(mtd.getErshi())?"√"
+                    :(mtd.getErshi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErshi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErshi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErshi()) ? "旷工":"√");
+            mt.setEy(StringUtils.isBlank(mtd.getEryi()) ? "" : "正常".equals(mtd.getEryi()) ? "√":"休息".equals(mtd.getEryi())?"休":"休息并打卡".equals(mtd.getEryi())?"√"
+                    :(mtd.getEryi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getEryi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getEryi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getEryi()) ? "旷工":"√");
+            mt.setEe(StringUtils.isBlank(mtd.getErer()) ? "" : "正常".equals(mtd.getErer()) ? "√":"休息".equals(mtd.getErer())?"休":"休息并打卡".equals(mtd.getErer())?"√"
+                    :(mtd.getErer().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErer().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErer().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErer()) ? "旷工":"√");
+            mt.setEsa(StringUtils.isBlank(mtd.getErsan()) ? "" : "正常".equals(mtd.getErsan()) ? "√":"休息".equals(mtd.getErsan())?"休":"休息并打卡".equals(mtd.getErsan())?"√"
+                    :(mtd.getErsan().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErsan().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErsan().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErsan()) ? "旷工":"√");
+            mt.setEsi(StringUtils.isBlank(mtd.getErsi()) ? "" : "正常".equals(mtd.getErsi()) ? "√":"休息".equals(mtd.getErsi())?"休":"休息并打卡".equals(mtd.getErsi())?"√"
+                    :(mtd.getErsi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErsi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErsi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErsi()) ? "旷工":"√");
+            mt.setEw(StringUtils.isBlank(mtd.getErwu()) ? "" : "正常".equals(mtd.getErwu()) ? "√":"休息".equals(mtd.getErwu())?"休":"休息并打卡".equals(mtd.getErwu())?"√"
+                    :(mtd.getErwu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErwu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErwu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErwu()) ? "旷工":"√");
+            mt.setEliu(StringUtils.isBlank(mtd.getErliu()) ? "" : "正常".equals(mtd.getErliu()) ? "√":"休息".equals(mtd.getErliu())?"休":"休息并打卡".equals(mtd.getErliu())?"√"
+                    :(mtd.getErliu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErliu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErliu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErliu()) ? "旷工":"√");
+            mt.setEq(StringUtils.isBlank(mtd.getErqi()) ? "" : "正常".equals(mtd.getErqi()) ? "√":"休息".equals(mtd.getErqi())?"休":"休息并打卡".equals(mtd.getErqi())?"√"
+                    :(mtd.getErqi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErqi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErqi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErqi()) ? "旷工":"√");
+            mt.setEb(StringUtils.isBlank(mtd.getErba()) ? "" : "正常".equals(mtd.getErba()) ? "√":"休息".equals(mtd.getErba())?"休":"休息并打卡".equals(mtd.getErba())?"√"
+                    :(mtd.getErba().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErba().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErba().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErba()) ? "旷工":"√");
+            mt.setEj(StringUtils.isBlank(mtd.getErjiu()) ? "" : "正常".equals(mtd.getErjiu()) ? "√":"休息".equals(mtd.getErjiu())?"休":"休息并打卡".equals(mtd.getErjiu())?"√"
+                    :(mtd.getErjiu().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getErjiu().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getErjiu().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getErjiu()) ? "旷工":"√");
+            mt.setSans(StringUtils.isBlank(mtd.getSanshi()) ? "" : "正常".equals(mtd.getSanshi()) ? "√":"休息".equals(mtd.getSanshi())?"休":"休息并打卡".equals(mtd.getSanshi())?"√"
+                    :(mtd.getSanshi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getSanshi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getSanshi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getSanshi()) ? "旷工":"√");
+            mt.setSany(StringUtils.isBlank(mtd.getSanyi()) ? "" : "正常".equals(mtd.getSanyi()) ? "√":"休息".equals(mtd.getSanyi())?"休":"休息并打卡".equals(mtd.getSanyi())?"√"
+                    :(mtd.getSanyi().lastIndexOf("年假"))!= -1 ?"年假" : (mtd.getSanyi().lastIndexOf("事假"))!= -1 ? "事假" : (mtd.getSanyi().lastIndexOf("出差"))!= -1 ? "出差" : "旷工".equals(mtd.getSanyi()) ? "旷工":"√");
+            mt.setYcqts("");
+            mt.setBj(mtd.getBj());
+            mt.setShij(mtd.getSj());
+            mt.setNj(mtd.getNj());
+            mt.setKg(mtd.getKgts());
+            mt.setJiab("");
+            mt.setFdj("");
+            mt.setZmj("");
+            mt.setTx("");
+            mt.setHj("");
+            mt.setJxcqts("");
+            mt.setFgzr("");
+            mt.setSynj("");
+            list.add(mt);
+            num++;
+        }
+
+        return list;
     }
 
     /**
@@ -97,15 +259,101 @@ public class DemoController {
     private List<List<String>> timeSheetSummaryHead(String year,String month) {
         List<List<String>> list = new ArrayList<List<String>>();
         List<String> head0 = new ArrayList<String>();
-        head0.add("字符串" + System.currentTimeMillis());
-        List<String> head1 = new ArrayList<String>();
-        head1.add("数字" + System.currentTimeMillis());
-        List<String> head2 = new ArrayList<String>();
-        head2.add("日期" + System.currentTimeMillis());
+        head0.add(year + "年" + month + "月考勤及扣款确认表");
+        head0.add("序号");
+        List<String> head1 = new ArrayList<>();
+        head1.add(year + "年" + month + "月考勤及扣款确认表");
+        head1.add("部门");
+        List<String> head2 = new ArrayList<>();
+        head2.add(year + "年" + month + "月考勤及扣款确认表");
+        head2.add("姓名");
+        List<String> head3 = new ArrayList<>();
+        head3.add(year + "年" + month + "月考勤及扣款确认表");
+        head3.add("应出勤天数");
+        List<String> head4 = new ArrayList<>();
+        head4.add(year + "年" + month + "月考勤及扣款确认表");
+        head4.add("实际出勤天数");
+        List<String> head5 = new ArrayList<>();
+        head5.add(year + "年" + month + "月考勤及扣款确认表");
+        head5.add("事假天数");
+        List<String> head6 = new ArrayList<>();
+        head6.add(year + "年" + month + "月考勤及扣款确认表");
+        head6.add("病假天数");
+        List<String> head7 = new ArrayList<>();
+        head7.add(year + "年" + month + "月考勤及扣款确认表");
+        head7.add("年假天数");
+        List<String> head8 = new ArrayList<>();
+        head8.add(year + "年" + month + "月考勤及扣款确认表");
+        head8.add("丧假天数");
+        List<String> head9 = new ArrayList<>();
+        head9.add(year + "年" + month + "月考勤及扣款确认表");
+        head9.add("婚假天数");
+        List<String> head10 = new ArrayList<>();
+        head10.add(year + "年" + month + "月考勤及扣款确认表");
+        head10.add("旷工");
+        List<String> head11 = new ArrayList<>();
+        head11.add(year + "年" + month + "月考勤及扣款确认表");
+        head11.add("迟到  2-10分（10）");
+        List<String> head12 = new ArrayList<>();
+        head12.add(year + "年" + month + "月考勤及扣款确认表");
+        head12.add("迟到 11-20分（30）");
+        List<String> head13 = new ArrayList<>();
+        head13.add(year + "年" + month + "月考勤及扣款确认表");
+        head13.add("迟到 21-30分（50）");
+        List<String> head14 = new ArrayList<>();
+        head14.add(year + "年" + month + "月考勤及扣款确认表");
+        head14.add("迟到  30以上（100）");
+        List<String> head15 = new ArrayList<>();
+        head15.add(year + "年" + month + "月考勤及扣款确认表");
+        head15.add("早退  5-10分");
+        List<String> head16 = new ArrayList<>();
+        head16.add(year + "年" + month + "月考勤及扣款确认表");
+        head16.add("早退 11-20分");
+        List<String> head17 = new ArrayList<>();
+        head17.add(year + "年" + month + "月考勤及扣款确认表");
+        head17.add("早退 21-30分");
+        List<String> head18 = new ArrayList<>();
+        head18.add(year + "年" + month + "月考勤及扣款确认表");
+        head18.add("未打卡30");
+        List<String> head19 = new ArrayList<>();
+        head19.add(year + "年" + month + "月考勤及扣款确认表");
+        head19.add("考勤扣款金额合计");
+        List<String> head20 = new ArrayList<>();
+        head20.add(year + "年" + month + "月考勤及扣款确认表");
+        head20.add("扣款说明（免责指是2次10分钟内的迟到）");
+        List<String> head21 = new ArrayList<>();
+        head21.add(year + "年" + month + "月考勤及扣款确认表");
+        head21.add("绩效分数");
+        List<String> head22 = new ArrayList<>();
+        head22.add(year + "年" + month + "月考勤及扣款确认表");
+        head22.add("扣分次数");
+
         list.add(head0);
         list.add(head1);
         list.add(head2);
+        list.add(head3);
+        list.add(head4);
+        list.add(head5);
+        list.add(head6);
+        list.add(head7);
+        list.add(head8);
+        list.add(head9);
+        list.add(head10);
+        list.add(head11);
+        list.add(head12);
+        list.add(head13);
+        list.add(head14);
+        list.add(head15);
+        list.add(head16);
+        list.add(head17);
+        list.add(head18);
+        list.add(head19);
+        list.add(head20);
+        list.add(head21);
+        list.add(head22);
         return list;
     }
+
+
 
 }
