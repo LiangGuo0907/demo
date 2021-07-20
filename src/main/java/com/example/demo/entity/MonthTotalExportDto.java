@@ -14,6 +14,8 @@ public class MonthTotalExportDto extends BaseRowModel {
     private Integer xh;
     @ExcelProperty({"九二五G 月考勤表", "姓名"})
     private String name;
+    @ExcelProperty({"九二五G 月考勤表", "部门"})
+    private String dept;
     @ExcelProperty({"九二五G 月考勤表", "实际出勤/天"})
     private String sjcq;
     @ExcelProperty({"九二五G 月考勤表", "加班/天"})

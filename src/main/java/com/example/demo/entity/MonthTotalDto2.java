@@ -8,7 +8,7 @@ import lombok.Data;
  * @date 2021/5/27 8:05
  */
 @Data
-public class MonthTotalDto {
+public class MonthTotalDto2 {
     @ExcelProperty(index = 0)
     private String name;
 

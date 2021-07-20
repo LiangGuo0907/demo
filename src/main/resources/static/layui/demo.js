@@ -54,7 +54,7 @@ function uploadExcel() {
         url: "/importExcel",
         data: formData,
         success: function (data) {
-
+            confirm(data.msg);
         }
     });
 

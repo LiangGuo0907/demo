@@ -7,9 +7,13 @@ server:
 #spring相关配置
 spring:
   thymeleaf:
-    prefix: classpath:/templates/
+    prefix: classpath:templates/
     suffix: .html
     mode: HTML
     encoding: UTF-8
     content-type: text/html
     cache: false
+    mvc:
+      view:
+        prefix: html/
+        suffix: .html
