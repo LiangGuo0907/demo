@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Wsh</title>
+    <link rel="stylesheet" href="css/layui.css" media="all">
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="layui.js"></script>
+    <script type="text/javascript" src="demo.js"></script>
+</head>
+<body>
+<div class="layui-upload">
+    <div class="layui-upload-list" style="max-width: 100%;">
+        <table class="layui-table">
+            <colgroup>
+                <col>
+                <col>
+                <col>
+                <col>
+            </colgroup>
+            <thead>
+            <tr><th>文件名</th>
+                <th>大小</th>
+                <th>上传进度</th>
+                <th>操作</th>
+            </tr></thead>
+            <tbody id="demoList"></tbody>
+        </table>
+    </div>
+    <button type="button" class="layui-btn layui-btn-normal" id="testList">
+        选择文件
+    </button>
+    <button type="button" class="layui-btn" id="testListAction">
+        开始上传
+    </button>
+    <!--<button type="button" class="layui-btn layui-btn-normal">导出考勤</button>-->
+    <button type="button" onclick="excelExport()" class="layui-btn">导出考勤</button>
+</div>
+<hr />
+<!--<div class="layui-btn-group demoTable">
+    <button class="layui-btn" data-type="getCheckData">获取选中行数据</button>
+    <button class="layui-btn" data-type="getCheckLength">获取选中数目</button>
+    <button class="layui-btn" data-type="isAll">验证是否全选</button>
+</div>-->
+
+<h2 style="text-align:center;">考 勤 记 录</h2>
+<div class="demoTable">
+    <div class="layui-inline">
+        <div class="layui-inline">
+            <label class="layui-form-label">姓名</label>
+            <div class="layui-input-inline">
+                <input type="text" id="name" name="name" placeholder=""
+                       autocomplete="off" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-inline">
+            <label class="layui-form-label">考勤时间</label>
+            <div class="layui-input-inline">
+                <input readonly type="text" id="attendanceTime" name="attendanceTime" placeholder=""
+                       autocomplete="off" class="layui-input">
+            </div>
+        </div>
+    </div>
+    <button class="layui-btn" data-type="reload">搜索</button>
+</div>
+
+<table id="testReload" class="layui-table" lay-data="{height: 'full-200', cellMinWidth: 150, limit: 20, url:'api/getdata', page:true, id:'idTest'}" lay-filter="demo">
+    <thead>
+    <tr>
+        <th lay-data="{type:'checkbox', fixed: 'left'}"></th>
+        <th lay-data="{type:'numbers', fixed: 'left'}">序号</th>
+        <th lay-data="{field:'name', sort: true}">姓名</th>
+        <th lay-data="{field:'dept',  sort: true}">部门</th>
+        <th lay-data="{field:'jobNum', sort: true}">工号</th>
+        <th lay-data="{field:'cqts', sort: true}">出勤天数</th>
+        <th lay-data="{field:'xxts',  sort: true}">休息天数</th>
+        <th lay-data="{field:'gzsc', sort: true}">工作时长</th>
+        <th lay-data="{field:'cdcs',  sort: true}">迟到次数</th>
+        <th lay-data="{field:'cdsc',  sort: true}">迟到时长</th>
+        <th lay-data="{field:'yzcdcs',  sort: true}">严重迟到次数</th>
+        <th lay-data="{field:'yzcdsc',  sort: true}">严重迟到时长</th>
+        <th lay-data="{field:'kgcdts',  sort: true}">旷工迟到天数</th>
+        <th lay-data="{field:'ztcs',  sort: true}">早退次数</th>
+        <th lay-data="{field:'ztsc',  sort: true}">早退时长</th>
+        <th lay-data="{field:'sbqkcs',  sort: true}">上班缺卡次数</th>
+        <th lay-data="{field:'xbqkcs',  sort: true}">下班缺卡次数</th>
+        <th lay-data="{field:'kgts',  sort: true}">旷工天数</th>
+        <th lay-data="{field:'cc',  sort: true}">出差</th>
+        <th lay-data="{field:'sj',  sort: true}">事假</th>
+        <th lay-data="{field:'nj',  sort: true}">年假</th>
+        <th lay-data="{field:'bj',  sort: true}">病假</th>
+        <th lay-data="{field:'yi',  sort: true}">1号</th>
+        <th lay-data="{field:'er',  sort: true}">2号</th>
+        <th lay-data="{field:'san',  sort: true}">3号</th>
+        <th lay-data="{field:'si',  sort: true}">4号</th>
+        <th lay-data="{field:'wu',  sort: true}">5号</th>
+        <th lay-data="{field:'liu',  sort: true}">6号</th>
+        <th lay-data="{field:'qi',  sort: true}">7号</th>
+        <th lay-data="{field:'ba',  sort: true}">8号</th>
+        <th lay-data="{field:'jiu',  sort: true}">9号</th>
+        <th lay-data="{field:'shi',  sort: true}">10号</th>
+        <th lay-data="{field:'shiyi',  sort: true}">11号</th>
+        <th lay-data="{field:'shier',  sort: true}">12号</th>
+        <th lay-data="{field:'shisan',  sort: true}">13号</th>
+        <th lay-data="{field:'shisi',  sort: true}">14号</th>
+        <th lay-data="{field:'shiwu',  sort: true}">15号</th>
+        <th lay-data="{field:'shiliu',  sort: true}">16号</th>
+        <th lay-data="{field:'shiqi',  sort: true}">17号</th>
+        <th lay-data="{field:'shiba',  sort: true}">18号</th>
+        <th lay-data="{field:'shijiu',  sort: true}">19号</th>
+        <th lay-data="{field:'ershi',  sort: true}">20号</th>
+        <th lay-data="{field:'eryi',  sort: true}">21号</th>
+        <th lay-data="{field:'erer',  sort: true}">22号</th>
+        <th lay-data="{field:'ersan',  sort: true}">23号</th>
+        <th lay-data="{field:'ersi',  sort: true}">24号</th>
+        <th lay-data="{field:'erwu',  sort: true}">25号</th>
+        <th lay-data="{field:'erliu',  sort: true}">26号</th>
+        <th lay-data="{field:'erqi',  sort: true}">27号</th>
+        <th lay-data="{field:'erba',  sort: true}">28号</th>
+        <th lay-data="{field:'erjiu',  sort: true}">29号</th>
+        <th lay-data="{field:'sanshi',  sort: true}">30号</th>
+        <th lay-data="{field:'sanyi',  sort: true}">31号</th>
+        <!--<th lay-data="{fixed: 'right', width:178, align:'center', toolbar: '#barDemo'}"></th>-->
+    </tr>
+    </thead>
+</table>
+
+<script type="text/html" id="barDemo">
+    <a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="detail">查看</a>
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+
+<script>
+    layui.use('table', function(){
+        var table = layui.table;
+        //监听表格复选框选择
+        table.on('checkbox(demo)', function(obj){
+            console.log(obj)
+        });
+        //监听工具条
+        table.on('tool(demo)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'detail'){
+                layer.msg('ID：'+ data.id + ' 的查看操作');
+            } else if(obj.event === 'del'){
+                layer.confirm('真的删除行么', function(index){
+                    obj.del();
+                    layer.close(index);
+                });
+            } else if(obj.event === 'edit'){
+                layer.alert('编辑行：<br>'+ JSON.stringify(data))
+            }
+        });
+
+        var $ = layui.$, active = {
+            getCheckData: function(){ //获取选中数据
+                var checkStatus = table.checkStatus('idTest')
+                    ,data = checkStatus.data;
+                layer.alert(JSON.stringify(data));
+            }
+            ,getCheckLength: function(){ //获取选中数目
+                var checkStatus = table.checkStatus('idTest')
+                    ,data = checkStatus.data;
+                layer.msg('选中了：'+ data.length + ' 个');
+            }
+            ,isAll: function(){ //验证是否全选
+                var checkStatus = table.checkStatus('idTest');
+                layer.msg(checkStatus.isAll ? '全选': '未全选')
+            }
+        };
+
+        $('.demoTable .layui-btn').on('click', function(){
+            var type = $(this).data('type');
+            active[type] ? active[type].call(this) : '';
+        });
+    });
+
+    layui.use(['upload', 'element', 'layer'], function(){
+        var $ = layui.jquery
+            ,upload = layui.upload
+            ,element = layui.element
+            ,layer = layui.layer;
+
+        //常规使用 - 普通图片上传
+        var uploadInst = upload.render({
+            elem: '#test1'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,before: function(obj){
+                //预读本地文件示例，不支持ie8
+                obj.preview(function(index, file, result){
+                    $('#demo1').attr('src', result); //图片链接（base64）
+                });
+
+                element.progress('demo', '0%'); //进度条复位
+                layer.msg('上传中', {icon: 16, time: 0});
+            }
+            ,done: function(res){
+                //如果上传失败
+                if(res.code > 0){
+                    return layer.msg('上传失败');
+                }
+                //上传成功的一些操作
+                //……
+                $('#demoText').html(''); //置空上传失败的状态
+            }
+            ,error: function(){
+                //演示失败状态，并实现重传
+                var demoText = $('#demoText');
+                demoText.html('<span style="color: #ff5722;">上传失败</span> <a class="layui-btn layui-btn-xs demo-reload">重试</a>');
+                demoText.find('.demo-reload').on('click', function(){
+                    uploadInst.upload();
+                });
+            }
+            //进度条
+            ,progress: function(n, elem, e){
+                element.progress('demo', n + '%'); //可配合 layui 进度条元素使用
+                if(n == 100){
+                    layer.msg('上传完毕', {icon: 1});
+                }
+            }
+        });
+
+        //演示多文件列表
+        var uploadListIns = upload.render({
+            elem: '#testList'
+            ,elemList: $('#demoList') //列表元素对象
+            ,url: 'importExcel'
+            ,accept: 'file'
+            ,multiple: true
+            ,number: 3
+            ,auto: false
+            ,bindAction: '#testListAction'
+            ,choose: function(obj){
+                var that = this;
+                var files = this.files = obj.pushFile(); //将每次选择的文件追加到文件队列
+                //读取本地文件
+                obj.preview(function(index, file, result){
+                    var tr = $(['<tr id="upload-'+ index +'">'
+                        ,'<td>'+ file.name +'</td>'
+                        ,'<td>'+ (file.size/1014).toFixed(1) +'kb</td>'
+                        ,'<td><div class="layui-progress" lay-filter="progress-demo-'+ index +'"><div class="layui-progress-bar" lay-percent=""></div></div></td>'
+                        ,'<td>'
+                        ,'<button class="layui-btn layui-btn-xs demo-reload layui-hide">重传</button>'
+                        ,'<button class="layui-btn layui-btn-xs layui-btn-danger demo-delete">删除</button>'
+                        ,'</td>'
+                        ,'</tr>'].join(''));
+
+                    //单个重传
+                    tr.find('.demo-reload').on('click', function(){
+                        obj.upload(index, file);
+                    });
+
+                    //删除
+                    tr.find('.demo-delete').on('click', function(){
+                        delete files[index]; //删除对应的文件
+                        tr.remove();
+                        uploadListIns.config.elem.next()[0].value = ''; //清空 input file 值，以免删除后出现同名文件不可选
+                    });
+
+                    that.elemList.append(tr);
+                    element.render('progress'); //渲染新加的进度条组件
+                });
+            }
+            ,done: function(res, index, upload){ //成功的回调
+                var that = this;
+                if(res.code == 0){ //上传成功
+                    layer.msg('上传成功');
+                    var tr = that.elemList.find('tr#upload-'+ index)
+                        ,tds = tr.children();
+                    tds.eq(3).html(''); //清空操作
+                    delete this.files[index]; //删除文件队列已经上传成功的文件
+                    setTimeout('window.location.reload()',100);
+                    return;
+                }
+                this.error(res,index, upload);
+            }
+            ,allDone: function(obj){ //多文件上传完毕后的状态回调
+                console.log(obj)
+            }
+            ,error: function(res,index, upload){ //错误回调
+                layer.msg(res.msg);
+                var that = this;
+                var tr = that.elemList.find('tr#upload-'+ index)
+                    ,tds = tr.children();
+                tds.eq(3).find('.demo-reload').removeClass('layui-hide'); //显示重传
+            }
+            ,progress: function(n, elem, e, index){ //注意：index 参数为 layui 2.6.6 新增
+                element.progress('progress-demo-'+ index, n + '%'); //执行进度条。n 即为返回的进度百分比
+            }
+        });
+
+        //多图片上传
+        upload.render({
+            elem: '#test2'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,multiple: true
+            ,before: function(obj){
+                //预读本地文件示例，不支持ie8
+                obj.preview(function(index, file, result){
+                    $('#demo2').append('<img src="'+ result +'" alt="'+ file.name +'" class="layui-upload-img">')
+                });
+            }
+            ,done: function(res){
+                //上传完毕
+            }
+        });
+
+        //指定允许上传的文件类型
+        upload.render({
+            elem: '#test3'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,accept: 'file' //普通文件
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res);
+            }
+        });
+        upload.render({ //允许上传的文件后缀
+            elem: '#test4'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,accept: 'file' //普通文件
+            ,exts: 'zip|rar|7z' //只允许上传压缩文件
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+        upload.render({
+            elem: '#test5'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,accept: 'video' //视频
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+        upload.render({
+            elem: '#test6'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,accept: 'audio' //音频
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+
+        //设定文件大小限制
+        upload.render({
+            elem: '#test7'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,size: 60 //限制文件大小，单位 KB
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+
+        //同时绑定多个元素，并将属性设定在元素上
+        upload.render({
+            elem: '.demoMore'
+            ,before: function(){
+                layer.tips('接口地址：'+ this.url, this.item, {tips: 1});
+            }
+            ,done: function(res, index, upload){
+                var item = this.item;
+                console.log(item); //获取当前触发上传的元素，layui 2.1.0 新增
+            }
+        })
+
+        //选完文件后不自动上传
+        upload.render({
+            elem: '#test8'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,auto: false
+            //,multiple: true
+            ,bindAction: '#test9'
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+
+        //拖拽上传
+        upload.render({
+            elem: '#test10'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,done: function(res){
+                layer.msg('上传成功');
+                layui.$('#uploadDemoView').removeClass('layui-hide').find('img').attr('src', res.files.file);
+                console.log(res)
+            }
+        });
+
+        //绑定原始文件域
+        upload.render({
+            elem: '#test20'
+            ,url: 'https://httpbin.org/post' //改成您自己的上传接口
+            ,done: function(res){
+                layer.msg('上传成功');
+                console.log(res)
+            }
+        });
+
+    });
+
+    var laydate = layui.laydate;
+    laydate.render({
+        elem : '#attendanceTime', //指定元素
+        type : 'month'
+    });
+    //查询功能
+    layui.use('table', function(){
+        var table = layui.table;
+
+        //方法级渲染
+        table.render({
+            elem: '#LAY_table_user'
+            ,url: 'api/getdata'
+            ,cols: [[
+                {checkbox: true, fixed: true}
+                ,{field:'id', title: 'ID', width:80, sort: true, fixed: true}
+                ,{field:'username', title: '用户名', width:80}
+                ,{field:'sex', title: '性别', width:80, sort: true}
+                ,{field:'city', title: '城市', width:80}
+                ,{field:'sign', title: '签名'}
+                ,{field:'experience', title: '积分', sort: true, width:80}
+                ,{field:'score', title: '评分', sort: true, width:80}
+                ,{field:'classify', title: '职业', width:80}
+                ,{field:'wealth', title: '财富', sort: true, width:135}
+            ]]
+            ,id: 'testReload'
+            ,page: true
+            ,height: 310
+        });
+
+        var $ = layui.$, active = {
+            reload: function(){
+                var name = $('#name');
+                var attendanceTime = $('#attendanceTime');
+
+                //执行重载
+                table.reload('idTest', {
+                    page: {
+                        curr: 1 //重新从第 1 页开始
+                    }
+                    ,where: {
+                        name: name.val(),
+                        attendanceTime: attendanceTime.val()
+                    }
+                });
+            }
+        };
+
+        $('.demoTable .layui-btn').on('click', function(){
+            var type = $(this).data('type');
+            active[type] ? active[type].call(this) : '';
+        });
+    });
+
+
+</script>
+<script language=javascript>
+    //导出Excel
+    function excelExport() {
+        let attendanceTime = $('#attendanceTime').val();
+        if (attendanceTime == null || attendanceTime == '' || attendanceTime == 'underfind'){
+            layer.msg('请选择考勤时间');
+            return ;
+        }
+        window.location.href = 'export?attendanceTime='+attendanceTime;
+    }
+</script>
+</body>
+</html>

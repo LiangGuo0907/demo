@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.auto.AttendanceSheetMapper">
+
+    <select id="queryMonthData" resultType="com.example.model.auto.AttendanceSheet">
+        SELECT * from attendance_sheet  where 1=1
+        <if test="attendanceTime != null ">
+            and year_month_time =#{attendanceTime}
+        </if>
+    </select>
+
+</mapper>

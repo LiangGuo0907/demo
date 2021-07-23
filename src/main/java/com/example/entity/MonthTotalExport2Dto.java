@@ -1,4 +1,4 @@
-package com.example.demo.entity;
+package com.example.entity;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.metadata.BaseRowModel;

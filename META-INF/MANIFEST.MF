@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Main-Class: com.example.demo.DemoApplication
+Main-Class: com.example.DemoApplication
 Class-Path: commons-cli-1.1.jar commons-lang3-3.12.0.jar spring-context-
  5.3.7.jar spring-beans-5.3.7.jar spring-boot-autoconfigure-2.5.0.jar ju
  nit-platform-commons-1.7.2.jar ecj-3.18.0.jar jakarta.annotation-api-1.

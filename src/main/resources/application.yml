@@ -6,14 +6,43 @@ server:
   tomcat.uri-encoding: UTF-8
 #spring相关配置
 spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://39.105.9.85:3306/wsh?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 12345678
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false
   thymeleaf:
-    prefix: classpath:templates/
+    prefix: classpath:/templates/
     suffix: .html
     mode: HTML
+    enabled: true  #开启thymeleaf视图解析
     encoding: UTF-8
     content-type: text/html
     cache: false
-    mvc:
-      view:
-        prefix: html/
-        suffix: .html
+    check-template-location: true
+    #    检查模板路径是否存在
+    #    check-template-location: true
+    servlet:
+      content-type: text/html
+    #    enabled: true
+    #    check-template: false
+#MybatisPlus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    auto-mapping-behavior: full
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:com/example/mapper/auto/xml/*.xml
+  type-aliases-package: com.example.model.auto
+  global-config:
+    # 逻辑删除配置
+    db-config:
+      # 删除前
+      logic-not-delete-value: 1
+      # 删除后
+      logic-delete-value: 0
